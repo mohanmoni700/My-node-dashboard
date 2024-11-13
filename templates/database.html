@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MySQL Databases</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">MySQL Databases</h1>
+        {% if message %}
+            <div class="alert alert-info">{{ message }}</div>
+        {% endif %}
+        {% if databases %}
+            <ul class="list-group">
+                {% for db in databases %}
+                    <li class="list-group-item">{{ db }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="alert alert-info">No databases found or wrong credentials provided.</div>
+        {% endif %}
+        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#createDbModal">Create Database</button>
+        <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#importSqlModal">Import SQL File</button>
+        
+        <!-- Updated Back to Dashboard Button -->
+        <form method="POST" action="/service_status">
+            <button type="submit" class="btn btn-secondary">Back to Dashboard</button>
+        </form>
+    </div>
+
+    <!-- Create Database Modal -->
+    <div class="modal fade" id="createDbModal" tabindex="-1" aria-labelledby="createDbModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="/create_database">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="createDbModalLabel">Create New Database</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="db_name">Database Name</label>
+                            <input type="text" class="form-control" id="db_name" name="db_name" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import SQL Modal -->
+    <div class="modal fade" id="importSqlModal" tabindex="-1" aria-labelledby="importSqlModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="/import_sql" enctype="multipart/form-data">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="importSqlModalLabel">Import SQL File</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="db_name">Select Database</label>
+                            <select class="form-control" id="db_name" name="db_name" required>
+                                {% for db in databases %}
+                                    <option value="{{ db }}">{{ db }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="sql_file">Choose SQL File</label>
+                            <input type="file" class="form-control" id="sql_file" name="sql_file" accept=".sql" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Import</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Display Import Output -->
+    {% if import_output %}
+        <div class="alert alert-info mt-4" style="white-space: pre-wrap;">{{ import_output }}</div>
+    {% endif %}
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

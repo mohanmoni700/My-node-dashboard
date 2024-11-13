@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Monitoring Dashboard</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="static/css/styles.css">
+    
+    <style>
+        .dashboard-container {
+            display: flex;
+            align-items: flex-start;
+        }
+        #sidebar {
+            width: 250px;
+        }
+        #welcomeMessage {
+            display: none;
+            margin-left: 20px;
+            align-self: center;
+            font-size: 2rem;
+            font-weight: 600;
+            color: black;
+            text-align: center;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .main-content {
+            margin-left: 20px;
+            width: 100%;
+        }
+        .chart-container {
+            margin-top: 20px;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        {% if session['hostname'] %}
+        <nav class="bg-light" id="sidebar">
+            <button class="btn btn-light btn-block" id="dashboardButton" onclick="showWelcomeMessage()">Dashboard</button>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <form method="POST" action="/service_status" id="serviceStatusForm" onsubmit="hideWelcomeMessage()">
+                        <button type="submit" class="nav-link btn btn-light-grey">Service Status</button>
+                    </form>
+                </li>
+                <li class="nav-item">
+                    <button type="button" class="nav-link btn btn-light-grey mt-2" onclick="showMetrics()">Server Metrics</button>
+                </li>
+                <li class="nav-item">
+                    <div style="margin-top: 10px;"></div>
+                </li>
+                <li class="nav-item">
+                    <button type="button" class="nav-link btn btn-light-grey" data-toggle="modal" data-target="#dbModal">Databases</button>
+                </li>
+            </ul>
+            <div class="mt-auto">
+                <form method="POST" action="/disconnect">
+                    <button type="submit" class="nav-link btn btn-link">Disconnect</button>
+                </form>
+            </div>
+        </nav>
+
+        <div id="welcomeMessage" style="{% if show_welcome %}display:block;{% endif %}">Welcome to Server Monitoring</div>
+
+        <div class="main-content" id="mainContent" style="{% if show_welcome %}display:none;{% endif %}">
+            <h1 id="systemStatusHeading" class="text-center">System Services Status</h1>
+            {% if metrics %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for service, status in metrics.items() %}
+                            {% if service not in ['cpu', 'ram', 'disk'] %}
+                                <tr>
+                                    <td>{{ service }}</td>
+                                    <td>
+                                        <span class="badge {% if status == 'running' %}badge-success{% else %}badge-danger{% endif %}">
+                                            {{ status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if status == 'running' %}
+                                            <form method="POST" action="/service_control" style="display:inline;">
+                                                <input type="hidden" name="service_name" value="{{ service }}">
+                                                <button type="submit" name="action" value="stop" class="btn btn-danger btn-sm">STOP</button>
+                                            </form>
+                                        {% else %}
+                                            <form method="POST" action="/service_control" style="display:inline;">
+                                                <input type="hidden" name="service_name" value="{{ service }}">
+                                                <button type="submit" name="action" value="start" class="btn btn-success btn-sm">START</button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+            {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+            {% if message %}
+                <div class="alert alert-success">{{ message }}</div>
+            {% endif %}
+        </div>
+
+        <div class="chart-container" id="chartContainer" style="display:none;">
+            <h2 class="text-center">Server Metrics</h2>
+            <div class="row">
+                <div class="col-md-12">
+                    <canvas id="cpuChart" width="800" height="400"></canvas> <!-- Increased size -->
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="dbModal" tabindex="-1" aria-labelledby="dbModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form method="POST" action="/database">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="dbModalLabel">MySQL Credentials</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="mysql_username">MySQL Username</label>
+                                <input type="text" class="form-control" id="mysql_username" name="mysql_username" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="mysql_password">MySQL Password</label>
+                                <input type="password" class="form-control" id="mysql_password" name="mysql_password" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Submit</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+            <div class="container">
+                <h1 class="text-center">Login to Server</h1>
+                <form method="POST" action="/monitor">
+                    <div class="form-group">
+                        <label for="hostname">Hostname</label>
+                        <input type="text" class="form-control" id="hostname" name="hostname" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Login</button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        let cpuChart;
+        let cpuData = { labels: [], values: [] };
+        let secondsPassed = 0;
+
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/server_metrics');
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const data = await response.json();
+
+                if (data.cpu && typeof data.cpu.usage === 'number') {
+                    updateCharts(data.cpu.usage);
+                } else {
+                    console.error('CPU data is not in the expected format:', data);
+                }
+            } catch (error) {
+                console.error('There was a problem with the fetch operation:', error);
+            }
+            setTimeout(fetchMetrics, 1000); // Fetch every second
+        }
+
+        function updateCharts(cpuUsage) {
+            const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+
+            if (!cpuChart) {
+                cpuChart = new Chart(cpuCtx, {
+                    type: 'line',
+                    data: {
+                        labels: cpuData.labels,
+                        datasets: [{
+                            label: 'CPU Usage (%)',
+                            data: cpuData.values,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                position: 'bottom',
+                                ticks: {
+                                    callback: function(value) {
+                                        return Math.floor(value); // Show whole numbers only
+                                    }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            } else {
+                secondsPassed++;
+                cpuData.labels.push(secondsPassed);
+                cpuData.values.push(cpuUsage);
+
+                if (cpuData.labels.length > 10) {
+                    cpuData.labels.shift();
+                    cpuData.values.shift();
+                }
+
+                cpuChart.update();
+            }
+        }
+
+        function showWelcomeMessage() {
+            document.getElementById('welcomeMessage').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('chartContainer').style.display = 'none';
+        }
+
+        function hideWelcomeMessage() {
+            document.getElementById('welcomeMessage').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('chartContainer').style.display = 'block';
+            fetchMetrics(); // Start fetching metrics
+        }
+
+        function showMetrics() {
+            document.getElementById('welcomeMessage').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('chartContainer').style.display = 'block';
+            fetchMetrics(); // Start fetching metrics
+        }
+    </script>
+</body>
+</html>
